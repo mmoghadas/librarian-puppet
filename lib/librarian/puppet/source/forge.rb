@@ -163,6 +163,14 @@ module Librarian
             end
           end
 
+          def read_url(url, parsed_url)
+            if (parsed_url.user || parsed_url.password)
+              open(url, :http_basic_authentication=>[parsed_url.user, parsed_url.password]) {|f| f.read}
+            else
+              open(url) {|f| f.read}
+            end
+          end
+
         private
 
           # get and cache the API data for a specific module with all its versions and dependencies
@@ -186,14 +194,16 @@ module Librarian
           end
 
           def api_call(module_name, version=nil)
-            base_url = source.uri
+            parsed_url = URI.parse(source.uri)
+            base_url = "#{parsed_url.scheme}://#{parsed_url.host}#{parsed_url.path}"
             path = "api/v1/releases.json?module=#{module_name}"
             path = "#{path}&version=#{version}" unless version.nil?
             url = "#{base_url}/#{path}"
             debug { "Querying Forge API for module #{name}#{" and version #{version}" unless version.nil?}: #{url}" }
 
             begin
-              data = open(url) {|f| f.read}
+              data = read_url(url, parsed_url)
+
               JSON.parse(data)
             rescue OpenURI::HTTPError => e
               case e.io.status[0].to_i
